@@ -53,7 +53,7 @@ matches exactly what you typed into the Supabase dashboard.
 ## 2. Get your API keys
 
 - **Supabase**: Project Settings → API → copy the Project URL and the
-  `anon` `public` key. 
+  `anon` `public` key.
 - **Anthropic**: console.anthropic.com → API Keys → use the same
   account already billing WorkLedger's receipt reading, or create a new
   key under it.

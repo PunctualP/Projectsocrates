@@ -1,5 +1,6 @@
 import { redirect, notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { YOUTH_MODE_MAX_AGE } from "@/lib/ai/systemPrompt";
 import JourneyChat from "./JourneyChat";
 
 export default async function JourneyPage({ params }) {
@@ -19,6 +20,15 @@ export default async function JourneyPage({ params }) {
     notFound();
   }
 
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("age")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  const youthMode =
+    typeof profile?.age === "number" && profile.age <= YOUTH_MODE_MAX_AGE;
+
   const { data: messages } = await supabase
     .from("messages")
     .select("id, role, content, created_at")
@@ -30,6 +40,7 @@ export default async function JourneyPage({ params }) {
       journeyId={journey.id}
       initialMessages={messages || []}
       initialStatus={journey.status}
+      youthMode={youthMode}
     />
   );
 }

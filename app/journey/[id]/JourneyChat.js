@@ -3,27 +3,80 @@
 import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 
-export default function JourneyChat({ journeyId, initialMessages, initialStatus }) {
+// How long to wait after an assistant message before showing tappable
+// suggestion chips, if the child hasn't started typing yet. Tune freely.
+const SUGGESTION_DELAY_MS = 12000;
+
+// Parses {{word::meaning}} markers (Young User Mode only — see
+// lib/ai/systemPrompt.js) into plain text plus tappable glossary terms.
+const GLOSSARY_RE = /\{\{([^:}]+)::([^}]+)\}\}/g;
+
+function parseGlossaryContent(text) {
+  const parts = [];
+  let lastIndex = 0;
+  let match;
+  let key = 0;
+
+  GLOSSARY_RE.lastIndex = 0;
+  while ((match = GLOSSARY_RE.exec(text)) !== null) {
+    if (match.index > lastIndex) {
+      parts.push({ type: "text", value: text.slice(lastIndex, match.index), key: key++ });
+    }
+    parts.push({ type: "gloss", term: match[1], meaning: match[2], key: key++ });
+    lastIndex = GLOSSARY_RE.lastIndex;
+  }
+  if (lastIndex < text.length) {
+    parts.push({ type: "text", value: text.slice(lastIndex), key: key++ });
+  }
+  return parts;
+}
+
+export default function JourneyChat({ journeyId, initialMessages, initialStatus, youthMode }) {
   const [messages, setMessages] = useState(initialMessages);
   const [status, setStatus] = useState(initialStatus);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
+  const [suggestions, setSuggestions] = useState([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
   const bottomRef = useRef(null);
+  const suggestionTimerRef = useRef(null);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, sending]);
 
+  function clearSuggestionTimer() {
+    if (suggestionTimerRef.current) {
+      clearTimeout(suggestionTimerRef.current);
+      suggestionTimerRef.current = null;
+    }
+  }
+
+  function armSuggestionTimer(nextSuggestions) {
+    clearSuggestionTimer();
+    setShowSuggestions(false);
+    if (youthMode && nextSuggestions.length > 0) {
+      suggestionTimerRef.current = setTimeout(() => {
+        setShowSuggestions(true);
+      }, SUGGESTION_DELAY_MS);
+    }
+  }
+
+  useEffect(() => {
+    return () => clearSuggestionTimer();
+  }, []);
+
   async function sendMessage(text) {
     const trimmed = text.trim();
     if (!trimmed || sending || status === "completed") return;
 
+    clearSuggestionTimer();
+    setShowSuggestions(false);
     setErrorMsg("");
     setInput("");
     setSending(true);
 
-    // Optimistic append of the user's message.
     setMessages((prev) => [
       ...prev,
       { id: `temp-${Date.now()}`, role: "user", content: trimmed },
@@ -47,8 +100,13 @@ export default function JourneyChat({ journeyId, initialMessages, initialStatus 
         { id: `assistant-${Date.now()}`, role: "assistant", content: data.content },
       ]);
 
+      const nextSuggestions = data.suggestions || [];
+      setSuggestions(nextSuggestions);
+
       if (data.completed) {
         setStatus("completed");
+      } else {
+        armSuggestionTimer(nextSuggestions);
       }
     } catch (err) {
       setErrorMsg("That didn't send. Check your connection and try again.");
@@ -60,6 +118,15 @@ export default function JourneyChat({ journeyId, initialMessages, initialStatus 
   function handleSubmit(e) {
     e.preventDefault();
     sendMessage(input);
+  }
+
+  function handleInputChange(e) {
+    setInput(e.target.value);
+    // Typing means they don't need the hint — hide it and stop the timer.
+    if (e.target.value.trim()) {
+      clearSuggestionTimer();
+      setShowSuggestions(false);
+    }
   }
 
   return (
@@ -104,14 +171,37 @@ export default function JourneyChat({ journeyId, initialMessages, initialStatus 
         {status !== "completed" && (
           <form onSubmit={handleSubmit} className="mt-6 sticky bottom-4">
             {errorMsg && <p className="text-xs text-red-400 mb-2">{errorMsg}</p>}
-            <div className="flex gap-2 mb-2">
-              <QuickButton label="I don't know" onClick={() => sendMessage("I don't know")} disabled={sending} />
-              <QuickButton label="Just tell me" onClick={() => sendMessage("Just tell me the answer")} disabled={sending} />
-            </div>
+
+            {youthMode ? (
+              <div className="mb-2 min-h-[34px]">
+                {showSuggestions && suggestions.length > 0 && (
+                  <div className="flex flex-wrap gap-2 animate-riseIn">
+                    {suggestions.map((s, i) => (
+                      <QuickButton
+                        key={i}
+                        label={s}
+                        onClick={() => sendMessage(s)}
+                        disabled={sending}
+                        playful
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="flex gap-2 mb-2">
+                <QuickButton
+                  label="I don't know"
+                  onClick={() => sendMessage("I don't know")}
+                  disabled={sending}
+                />
+              </div>
+            )}
+
             <div className="flex gap-2">
               <input
                 value={input}
-                onChange={(e) => setInput(e.target.value)}
+                onChange={handleInputChange}
                 placeholder="Share your thinking…"
                 disabled={sending}
                 className="flex-1 rounded-md bg-duskLight border border-mistDim/30 px-4 py-3 text-mist placeholder:text-mistDim/60 outline-none focus:border-gold/60 focus:ring-2 focus:ring-gold/20"
@@ -124,6 +214,14 @@ export default function JourneyChat({ journeyId, initialMessages, initialStatus 
                 Send
               </button>
             </div>
+
+            <div className="flex justify-center mt-2">
+              <QuickButton
+                label="Just tell me"
+                onClick={() => sendMessage("Just tell me the answer")}
+                disabled={sending}
+              />
+            </div>
           </form>
         )}
       </div>
@@ -133,9 +231,18 @@ export default function JourneyChat({ journeyId, initialMessages, initialStatus 
 
 function MessageBubble({ role, content }) {
   if (role === "assistant") {
+    const parts = parseGlossaryContent(content);
     return (
       <div className="paper-surface shadow-paper px-5 py-4 max-w-[85%] animate-riseIn">
-        <p className="font-display leading-relaxed whitespace-pre-wrap">{content}</p>
+        <p className="font-display leading-relaxed whitespace-pre-wrap">
+          {parts.map((part) =>
+            part.type === "gloss" ? (
+              <GlossaryWord key={part.key} term={part.term} meaning={part.meaning} />
+            ) : (
+              <span key={part.key}>{part.value}</span>
+            )
+          )}
+        </p>
       </div>
     );
   }
@@ -148,13 +255,37 @@ function MessageBubble({ role, content }) {
   );
 }
 
-function QuickButton({ label, onClick, disabled }) {
+function GlossaryWord({ term, meaning }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <span className="inline">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="underline decoration-dotted decoration-2 underline-offset-2 text-ink font-semibold hover:text-gold/80 transition"
+      >
+        {term}
+      </button>
+      {open && (
+        <span className="inline-block align-middle mx-1 px-2 py-0.5 rounded-full bg-gold/20 text-ink/80 text-sm not-italic font-sans animate-riseIn">
+          {meaning}
+        </span>
+      )}
+    </span>
+  );
+}
+
+function QuickButton({ label, onClick, disabled, playful }) {
   return (
     <button
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className="text-xs rounded-full border border-mistDim/40 text-mistDim px-3 py-1.5 hover:border-gold/60 hover:text-gold transition disabled:opacity-40"
+      className={
+        playful
+          ? "text-sm rounded-full border border-gold/50 bg-gold/10 text-goldSoft px-4 py-2 hover:bg-gold/20 transition disabled:opacity-40"
+          : "text-xs rounded-full border border-mistDim/40 text-mistDim px-3 py-1.5 hover:border-gold/60 hover:text-gold transition disabled:opacity-40"
+      }
     >
       {label}
     </button>

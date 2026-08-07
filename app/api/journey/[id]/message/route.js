@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { runJourneyTurn } from "@/lib/ai/anthropicClient";
+import { YOUTH_MODE_MAX_AGE } from "@/lib/ai/systemPrompt";
 
 export async function POST(request, { params }) {
   const supabase = createClient();
@@ -59,6 +60,9 @@ export async function POST(request, { params }) {
 
   let turn;
   try {
+    const youthMode =
+      typeof profile?.age === "number" && profile.age <= YOUTH_MODE_MAX_AGE;
+
     turn = await runJourneyTurn({
       messages: conversation.map((m) => ({ role: m.role, content: m.content })),
       userContext: {
@@ -66,6 +70,7 @@ export async function POST(request, { params }) {
         displayName: profile?.display_name,
         openingQuestion: opening?.content,
       },
+      maxTokens: youthMode ? 350 : 700,
     });
   } catch (err) {
     console.error("Anthropic API error:", err);
@@ -93,5 +98,9 @@ export async function POST(request, { params }) {
     );
   }
 
-  return NextResponse.json({ content: turn.text, completed: turn.completed });
+  return NextResponse.json({
+    content: turn.text,
+    completed: turn.completed,
+    suggestions: turn.suggestions,
+  });
 }
