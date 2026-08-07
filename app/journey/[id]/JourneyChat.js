@@ -31,6 +31,22 @@ function parseGlossaryContent(text) {
   return parts;
 }
 
+// Legitimate short answers that shouldn't trigger the "say more" nudge —
+// a real yes/no or a number is a complete answer on its own.
+const SHORT_REPLY_WHITELIST = new Set([
+  "yes", "no", "yeah", "nah", "yep", "nope", "maybe",
+  "true", "false", "idk", "i don't know", "i dont know",
+]);
+
+function isTooShort(text) {
+  const trimmed = text.trim().toLowerCase();
+  if (!trimmed) return false;
+  if (SHORT_REPLY_WHITELIST.has(trimmed)) return false;
+  if (/^\d+$/.test(trimmed)) return false;
+  const wordCount = trimmed.split(/\s+/).filter(Boolean).length;
+  return wordCount < 3;
+}
+
 export default function JourneyChat({
   journeyId,
   initialMessages,
@@ -45,6 +61,7 @@ export default function JourneyChat({
   const [errorMsg, setErrorMsg] = useState("");
   const [suggestions, setSuggestions] = useState([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
+  const [pendingShortReply, setPendingShortReply] = useState(null);
   const bottomRef = useRef(null);
   const suggestionTimerRef = useRef(null);
 
@@ -73,9 +90,15 @@ export default function JourneyChat({
     return () => clearSuggestionTimer();
   }, []);
 
-  async function sendMessage(text) {
+  async function sendMessage(text, { bypassLengthCheck = false } = {}) {
     const trimmed = text.trim();
     if (!trimmed || sending || status === "completed") return;
+
+    if (youthMode && !bypassLengthCheck && isTooShort(trimmed)) {
+      setPendingShortReply(trimmed);
+      return;
+    }
+    setPendingShortReply(null);
 
     clearSuggestionTimer();
     setShowSuggestions(false);
@@ -128,6 +151,7 @@ export default function JourneyChat({
 
   function handleInputChange(e) {
     setInput(e.target.value);
+    setPendingShortReply(null);
     // Typing means they don't need the hint — hide it and stop the timer.
     if (e.target.value.trim()) {
       clearSuggestionTimer();
@@ -178,6 +202,30 @@ export default function JourneyChat({
           <form onSubmit={handleSubmit} className="mt-6 sticky bottom-4">
             {errorMsg && <p className="text-xs text-red-400 mb-2">{errorMsg}</p>}
 
+            {pendingShortReply && (
+              <div className="mb-2 rounded-md border border-gold/40 bg-gold/10 px-4 py-3 animate-riseIn">
+                <p className="text-sm text-goldSoft mb-2">
+                  Can you say a bit more? Try turning it into a full sentence.
+                </p>
+                <div className="flex gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setPendingShortReply(null)}
+                    className="text-xs rounded-full bg-gold text-midnight font-semibold px-3 py-1.5 hover:bg-goldSoft transition"
+                  >
+                    Let me add more
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => sendMessage(pendingShortReply, { bypassLengthCheck: true })}
+                    className="text-xs text-mistDim hover:text-mist underline transition"
+                  >
+                    Send it anyway
+                  </button>
+                </div>
+              </div>
+            )}
+
             {youthMode ? (
               <div className="mb-2 min-h-[34px]">
                 {showSuggestions && suggestions.length > 0 && (
@@ -187,7 +235,7 @@ export default function JourneyChat({
                         <QuickButton
                           key={i}
                           label={s}
-                          onClick={() => sendMessage(s)}
+                          onClick={() => sendMessage(s, { bypassLengthCheck: true })}
                           disabled={sending}
                           playful
                         />
@@ -204,7 +252,7 @@ export default function JourneyChat({
               <div className="flex gap-2 mb-2">
                 <QuickButton
                   label="I don't know"
-                  onClick={() => sendMessage("I don't know")}
+                  onClick={() => sendMessage("I don't know", { bypassLengthCheck: true })}
                   disabled={sending}
                 />
               </div>
@@ -236,7 +284,7 @@ export default function JourneyChat({
               </Link>
               <QuickButton
                 label="Just tell me"
-                onClick={() => sendMessage("Just tell me the answer")}
+                onClick={() => sendMessage("Just tell me the answer", { bypassLengthCheck: true })}
                 disabled={sending}
               />
             </div>
