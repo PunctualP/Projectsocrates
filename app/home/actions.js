@@ -1,6 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { getOrCreateTodaysPrompt, getFreshPrompt } from "@/lib/prompts/dailyPrompts";
 import { generateTopicQuestion } from "@/lib/ai/topicQuestion";
@@ -53,7 +54,10 @@ export async function shufflePrompt() {
   if (!user) redirect("/login");
 
   await getFreshPrompt(supabase, user.id);
-  redirect("/home");
+  // Not a redirect: we're already on /home, and redirecting to the same
+  // page you're already on doesn't reliably force Next.js to refetch data.
+  // revalidatePath is the correct way to refresh the current page.
+  revalidatePath("/home");
 }
 
 // "What are you curious about?" — generates a fresh Wonder-stage question
