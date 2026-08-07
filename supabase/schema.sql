@@ -58,7 +58,8 @@ create table journeys (
   completed_at timestamptz,
   summary text,                 -- filled in starting Milestone 2/3 (My Curiosity view)
   primary_category text,
-  secondary_categories text[]   -- filled in starting Milestone 2/3
+  secondary_categories text[],  -- filled in starting Milestone 2/3
+  topic_seed text                -- the free-text topic typed into "What are you curious about?", if any
 );
 
 alter table journeys enable row level security;

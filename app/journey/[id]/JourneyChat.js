@@ -227,7 +227,13 @@ export default function JourneyChat({
               </button>
             </div>
 
-            <div className="flex justify-center mt-2">
+            <div className="flex items-center justify-center gap-4 mt-2">
+              <Link
+                href="/home"
+                className="text-xs text-mistDim hover:text-mist transition"
+              >
+                ← Home
+              </Link>
               <QuickButton
                 label="Just tell me"
                 onClick={() => sendMessage("Just tell me the answer")}

@@ -20,15 +20,39 @@ export default async function JourneyPage({ params }) {
     notFound();
   }
 
-  const { data: profile } = await supabase
+  const { data: profile, error: profileError } = await supabase
     .from("profiles")
-    .select("age, suggestions_selectable")
+    .select("age")
     .eq("id", user.id)
     .maybeSingle();
 
+  if (profileError) {
+    console.error("[socrates] profile fetch error:", profileError.message);
+  }
+
   const youthMode =
     typeof profile?.age === "number" && profile.age <= YOUTH_MODE_MAX_AGE;
-  const selectableSuggestions = profile?.suggestions_selectable !== false;
+
+  // Fetched separately from age on purpose: this column was added after the
+  // initial schema, so on a project that hasn't run the migration yet, this
+  // query can fail without taking youth mode itself down with it.
+  let selectableSuggestions = true;
+  if (youthMode) {
+    const { data: settings, error: settingsError } = await supabase
+      .from("profiles")
+      .select("suggestions_selectable")
+      .eq("id", user.id)
+      .maybeSingle();
+
+    if (settingsError) {
+      console.error(
+        "[socrates] suggestions_selectable fetch error — has the migration been run? ",
+        settingsError.message
+      );
+    } else if (settings) {
+      selectableSuggestions = settings.suggestions_selectable !== false;
+    }
+  }
 
   const { data: messages } = await supabase
     .from("messages")
