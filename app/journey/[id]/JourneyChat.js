@@ -3,9 +3,9 @@
 import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 
-// How long to wait after an assistant message before showing tappable
-// suggestion chips, if the child hasn't started typing yet. Tune freely.
-const SUGGESTION_DELAY_MS = 12000;
+// How long to wait after an assistant message before showing suggestion
+// chips, if the child hasn't started typing yet. Tune freely.
+const SUGGESTION_DELAY_MS = 25000;
 
 // Parses {{word::meaning}} markers (Young User Mode only — see
 // lib/ai/systemPrompt.js) into plain text plus tappable glossary terms.
@@ -31,7 +31,13 @@ function parseGlossaryContent(text) {
   return parts;
 }
 
-export default function JourneyChat({ journeyId, initialMessages, initialStatus, youthMode }) {
+export default function JourneyChat({
+  journeyId,
+  initialMessages,
+  initialStatus,
+  youthMode,
+  selectableSuggestions = true,
+}) {
   const [messages, setMessages] = useState(initialMessages);
   const [status, setStatus] = useState(initialStatus);
   const [input, setInput] = useState("");
@@ -175,17 +181,23 @@ export default function JourneyChat({ journeyId, initialMessages, initialStatus,
             {youthMode ? (
               <div className="mb-2 min-h-[34px]">
                 {showSuggestions && suggestions.length > 0 && (
-                  <div className="flex flex-wrap gap-2 animate-riseIn">
-                    {suggestions.map((s, i) => (
-                      <QuickButton
-                        key={i}
-                        label={s}
-                        onClick={() => sendMessage(s)}
-                        disabled={sending}
-                        playful
-                      />
-                    ))}
-                  </div>
+                  selectableSuggestions ? (
+                    <div className="flex flex-wrap gap-2 animate-riseIn">
+                      {suggestions.map((s, i) => (
+                        <QuickButton
+                          key={i}
+                          label={s}
+                          onClick={() => sendMessage(s)}
+                          disabled={sending}
+                          playful
+                        />
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-sm italic text-mistDim animate-riseIn px-1">
+                      Maybe: {suggestions.join(" · ")}
+                    </p>
+                  )
                 )}
               </div>
             ) : (

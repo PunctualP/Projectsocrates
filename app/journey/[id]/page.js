@@ -22,12 +22,13 @@ export default async function JourneyPage({ params }) {
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("age")
+    .select("age, suggestions_selectable")
     .eq("id", user.id)
     .maybeSingle();
 
   const youthMode =
     typeof profile?.age === "number" && profile.age <= YOUTH_MODE_MAX_AGE;
+  const selectableSuggestions = profile?.suggestions_selectable !== false;
 
   const { data: messages } = await supabase
     .from("messages")
@@ -41,6 +42,7 @@ export default async function JourneyPage({ params }) {
       initialMessages={messages || []}
       initialStatus={journey.status}
       youthMode={youthMode}
+      selectableSuggestions={selectableSuggestions}
     />
   );
 }

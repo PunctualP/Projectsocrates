@@ -17,6 +17,8 @@ create table profiles (
   age integer,
   role text not null default 'member' check (role in ('member', 'admin')),
   reflection_duration_minutes integer not null default 20,
+  suggestions_selectable boolean not null default true,
+  suggestions_selectable boolean not null default true,
   created_at timestamptz not null default now()
 );
 
