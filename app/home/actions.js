@@ -13,7 +13,7 @@ export async function beginJourney() {
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const { prompt, category } = await getOrCreateTodaysPrompt(supabase, user.id);
+  const { prompt, category, source } = await getOrCreateTodaysPrompt(supabase, user.id);
 
   const { data: journey, error } = await supabase
     .from("journeys")
@@ -22,6 +22,7 @@ export async function beginJourney() {
       original_prompt: prompt,
       primary_category: category,
       status: "active",
+      prompt_source: source,
     })
     .select()
     .single();
@@ -95,6 +96,7 @@ export async function beginTopicJourney(formData) {
       original_prompt: question,
       status: "active",
       topic_seed: topic,
+      prompt_source: "topic_seed",
     })
     .select()
     .single();

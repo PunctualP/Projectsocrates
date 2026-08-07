@@ -59,7 +59,8 @@ create table journeys (
   summary text,                 -- filled in starting Milestone 2/3 (My Curiosity view)
   primary_category text,
   secondary_categories text[],  -- filled in starting Milestone 2/3
-  topic_seed text                -- the free-text topic typed into "What are you curious about?", if any
+  topic_seed text,               -- the free-text topic typed into "What are you curious about?", if any
+  prompt_source text             -- 'ai_generated' | 'curated_bank' | 'topic_seed'
 );
 
 alter table journeys enable row level security;
@@ -118,6 +119,7 @@ create table daily_prompt_history (
   date date not null,
   prompt text not null,
   category text not null,
+  source text not null default 'ai_generated' check (source in ('ai_generated', 'curated_bank')),
   unique (user_id, date)
 );
 
@@ -130,6 +132,41 @@ create policy "Users can view their own prompt history"
 create policy "Users can insert their own prompt history"
   on daily_prompt_history for insert
   with check (auth.uid() = user_id);
+
+-- Required for the "Something else?" shuffle: it upserts (insert-or-update)
+-- today's row, and upsert's ON CONFLICT DO UPDATE path needs an UPDATE
+-- policy too, not just INSERT — without this, every shuffle click was
+-- silently rejected by RLS once today's row already existed.
+create policy "Users can update their own prompt history"
+  on daily_prompt_history for update
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
+
+-- ─────────────────────────────────────────────────────────────────────────
+-- GENERATED PROMPTS  (growing library of proven-good AI-generated
+-- questions — written to when a journey using an AI-generated question
+-- actually completes. Shared across the whole family, not per-user, since
+-- a good question is good regardless of who saw it first. Not yet read
+-- from during selection — this is the write side of that; wiring it back
+-- into selection is a deliberate future step, not done automatically.)
+-- ─────────────────────────────────────────────────────────────────────────
+create table generated_prompts (
+  id uuid primary key default gen_random_uuid(),
+  question text not null,
+  category text not null,
+  created_at timestamptz not null default now()
+);
+
+alter table generated_prompts enable row level security;
+
+-- Shared table: any signed-in family member can read and contribute to it.
+create policy "Family members can view the generated prompt library"
+  on generated_prompts for select
+  using (auth.role() = 'authenticated');
+
+create policy "Family members can add to the generated prompt library"
+  on generated_prompts for insert
+  with check (auth.role() = 'authenticated');
 
 -- ─────────────────────────────────────────────────────────────────────────
 -- REFLECTIONS  (Milestone 2)

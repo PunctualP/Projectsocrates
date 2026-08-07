@@ -20,7 +20,7 @@ export async function POST(request, { params }) {
 
   const { data: journey } = await supabase
     .from("journeys")
-    .select("id, user_id, status")
+    .select("id, user_id, status, original_prompt, primary_category, prompt_source")
     .eq("id", params.id)
     .maybeSingle();
 
@@ -88,6 +88,21 @@ export async function POST(request, { params }) {
       .from("journeys")
       .update({ status: "completed", completed_at: new Date().toISOString() })
       .eq("id", journey.id);
+
+    // A completed journey is the "actively used" signal — save the
+    // question into the shared library so it can earn a permanent place
+    // rather than every generated question being disposable. Only for
+    // questions that came from domain generation, not ones seeded by a
+    // typed-in topic (those are personal to whoever typed them).
+    if (journey.prompt_source === "ai_generated" && journey.primary_category) {
+      const { error: libraryError } = await supabase.from("generated_prompts").insert({
+        question: journey.original_prompt,
+        category: journey.primary_category,
+      });
+      if (libraryError) {
+        console.error("[socrates] could not save to generated_prompts:", libraryError.message);
+      }
+    }
   }
 
   // Rough per-call token logging for cost awareness (build spec v0.3,
