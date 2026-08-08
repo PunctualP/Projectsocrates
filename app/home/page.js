@@ -93,7 +93,7 @@ export default async function HomePage() {
               What are you curious about?
             </p>
             <p className="text-ink/60 text-sm mb-4">
-              Type anything — a movie, an animal, a place — and get a question inspired by it.
+              Type anything — a movie, an animal, a place — and get a question inspired by it, maybe about the real world behind it, or the story itself.
             </p>
             <form action={beginTopicJourney} className="flex flex-col gap-3">
               <input
