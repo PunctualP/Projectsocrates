@@ -3,9 +3,9 @@
 import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 
-// How long to wait after an assistant message before showing suggestion
-// chips, if the child hasn't started typing yet. Tune freely.
-const SUGGESTION_DELAY_MS = 25000;
+// How long to wait after an assistant message before showing tappable
+// suggestion chips, if the child hasn't started typing yet. Tune freely.
+const SUGGESTION_DELAY_MS = 12000;
 
 // Parses {{word::meaning}} markers (Young User Mode only — see
 // lib/ai/systemPrompt.js) into plain text plus tappable glossary terms.
@@ -52,7 +52,7 @@ export default function JourneyChat({
   initialMessages,
   initialStatus,
   youthMode,
-  selectableSuggestions = true,
+  selectableSuggestions,
 }) {
   const [messages, setMessages] = useState(initialMessages);
   const [status, setStatus] = useState(initialStatus);
@@ -242,7 +242,7 @@ export default function JourneyChat({
                       ))}
                     </div>
                   ) : (
-                    <p className="text-sm italic text-mistDim animate-riseIn px-1">
+                    <p className="text-xs text-mistDim italic animate-riseIn">
                       Maybe: {suggestions.join(" · ")}
                     </p>
                   )

@@ -70,7 +70,11 @@ export async function POST(request, { params }) {
         displayName: profile?.display_name,
         openingQuestion: opening?.content,
       },
-      maxTokens: youthMode ? 350 : 700,
+      // Youth mode replies stay short (2-4 sentences) but still need to fit
+      // an occasional joke, a fuller-writing nudge, AND the suggestion
+      // marker on top of the actual answer — 350 was cutting the marker off
+      // the end before it ever got written. 500 leaves real headroom.
+      maxTokens: youthMode ? 500 : 700,
     });
   } catch (err) {
     console.error("Anthropic API error:", err);

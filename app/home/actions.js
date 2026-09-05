@@ -62,8 +62,8 @@ export async function shufflePrompt() {
 }
 
 // "What are you curious about?" — generates a fresh Wonder-stage question
-// from a topic the user typed, then starts a journey from it exactly like
-// beginJourney does.
+// (or a brief answer + question, if what they typed was itself a question)
+// from a topic the user typed, then starts a journey from it.
 export async function beginTopicJourney(formData) {
   const supabase = createClient();
   const {

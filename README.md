@@ -2,102 +2,61 @@
 
 "Make Curiosity a Habit."
 
-This is Milestone 1 from Build Spec v0.3: account sign-in, home screen,
-Today's Curiosity, full journey conversation (with "I don't know" and
-"just tell me" handling), and persistence. Reflection timer, Curiosity
-Profile, My Curiosity tree view, and Admin safety alerts come in later
-milestones — the database schema already has room for them so nothing
-here needs to be rebuilt.
-
 ## 1. Create the Supabase project
 
-1. In Supabase, create a new project (a dedicated one for Socrates is
-   cleanest — keeps it separate from WorkLedger/Chart Mark data).
-2. Open the **SQL Editor** and run the entire contents of
-   `supabase/schema.sql` once. This creates every table from the spec's
-   data model, with row-level security so each account can only see its
-   own data.
-3. Go to **Authentication → Users** and manually create two accounts
-   (per spec — there's no public sign-up screen):
+1. Create a Supabase project (a dedicated one for Socrates, separate from
+   WorkLedger/Chart Mark data).
+2. Run the entire contents of `supabase/schema.sql` once in the SQL Editor.
+3. Authentication → Users → manually create two accounts (no public sign-up
+   screen by design):
    - Your account: use your real email.
-   - Your daughter's account: she doesn't need a real email — see
-     "Accounts without email" below.
-4. Go to **Table Editor → profiles**. A row was auto-created for each
-   account. Edit them:
-   - Your row: set `role` to `admin`.
-   - Her row: set `role` to `member`, and set `age` to `8`.
-   - Set `display_name` on both to whatever you want shown in the app.
+   - Her account: doesn't need a real email — see "Accounts without email"
+     below.
+4. Table Editor → profiles → edit the auto-created rows:
+   - Your row: `role` = `admin`.
+   - Her row: `role` = `member`, `age` = her age.
+   - Set `display_name` on both.
 
 ### Accounts without email
 
-Supabase requires every account to have *something* in the email field
-internally, even if no real email is ever sent — there's no native
-bare-username account type. The app works around this: when you create
-her account in the Supabase dashboard, give it a synthetic address like
+Give her account a synthetic address like `emma@socrates.local` in the
+Supabase dashboard, with "Auto Confirm User" checked. On the login screen
+she just types `emma` — the app appends the domain automatically. Your own
+login still works with a real email as-is. Change the domain via
+`NEXT_PUBLIC_USERNAME_DOMAIN` in `.env.local` if you want.
 
-```
-emma@socrates.local
-```
+## 2. Environment variables
 
-and check **"Auto Confirm User"** so it never tries to send a
-verification email to an address that doesn't exist. Set a password for
-her the normal way.
+Copy `.env.local.example` to `.env.local` and fill in:
+- `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY` — Supabase
+  Project Settings → API.
+- `ANTHROPIC_API_KEY` — console.anthropic.com, same account as WorkLedger.
 
-On the login screen, she then just types `emma` (not the full address)
-— the app fills in `@socrates.local` automatically. Your own login is
-unaffected: typing a real email with an `@` in it is used as-is. If you
-want a different domain than `socrates.local`, set
-`NEXT_PUBLIC_USERNAME_DOMAIN` in `.env.local` — just make sure it
-matches exactly what you typed into the Supabase dashboard.
+On Netlify, add the same variables under Site configuration → Environment
+variables, then push to GitHub — Netlify builds and deploys automatically,
+no local run required.
 
-## 2. Get your API keys
+## What's in this build
 
-- **Supabase**: Project Settings → API → copy the Project URL and the
-  `anon` `public` key.
-- **Anthropic**: console.anthropic.com → API Keys → use the same
-  account already billing WorkLedger's receipt reading, or create a new
-  key under it.
-
-Copy `.env.local.example` to `.env.local` and fill in all three values.
-Never commit `.env.local` — it's already in `.gitignore`.
-
-## 3. Run it locally
-
-```bash
-npm install
-npm run dev
-```
-
-Open http://localhost:3000, sign in with one of the two accounts, and
-you should see Today's Curiosity waiting.
-
-## 4. Deploy to Netlify
-
-Same flow as your other apps:
-
-1. Push this project to a new repo under `PunctualP` on GitHub.
-2. In Netlify, "Add a new site" → import that repo.
-3. Netlify auto-detects Next.js and installs the required plugin — no
-   manual build config needed.
-4. Add the same three environment variables from `.env.local` in
-   Netlify's **Site settings → Environment variables**.
-5. Deploy.
+- Account sign-in (including username-only accounts), home screen, Today's
+  Curiosity (AI-generated within a fixed domain, curated bank as fallback
+  only), a "Something else?" shuffle, and a "What are you curious about?"
+  box that either invents a question from a topic or answers a direct
+  question and turns it into one.
+- Full journey conversation with "I don't know" / "Just tell me" handling,
+  Young User Mode (age ≤ 12 by default — see `YOUTH_MODE_MAX_AGE` in
+  `lib/ai/systemPrompt.js`): shorter replies, on-topic humor, clickable
+  vocabulary, question coaching, a short-reply gate that requires typing a
+  real sentence before sending, and proactive reply suggestions that can be
+  tappable or plain hint text per-account (`suggestions_selectable` in
+  `profiles`).
+- 10-minute inactivity auto sign-out, everywhere in the app.
+- A growing shared library (`generated_prompts`) of AI-generated questions
+  that proved themselves by completing a journey — write-only for now, not
+  yet read from during selection.
 
 ## What's deliberately not built yet
 
-Per spec Section 5 ("Do Not Build Yet") and the Milestone 1 scope: no
-reflection timer, no Curiosity Profile, no My Curiosity history view, no
-related/random branching after a journey ends, no Admin alerts UI, no
-native app, no monetization. The `journeys` table already has
-`summary` and `secondary_categories` columns, and `safety_alerts` /
-`reflections` / `profile_observations` / `journey_relationships` tables
-already exist — reserved for the next milestones so this build doesn't
-need schema changes later.
-
-## Cost notes
-
-Default model is Claude Haiku 4.5 via the Anthropic API, with prompt
-caching enabled on the system prompt (see `lib/ai/anthropicClient.js`).
-Each API call logs rough token usage (including cache reads) to the
-server console — check your hosting provider's function logs if you
-want to see per-conversation cost while testing.
+Reflection timer, Curiosity Profile, My Curiosity history view, Admin
+safety alerts UI, native app, monetization. The schema already has room for
+all of it.
