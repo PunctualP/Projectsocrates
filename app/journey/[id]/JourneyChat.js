@@ -53,6 +53,7 @@ export default function JourneyChat({
   initialStatus,
   youthMode,
   selectableSuggestions,
+  isLesson,
 }) {
   const [messages, setMessages] = useState(initialMessages);
   const [status, setStatus] = useState(initialStatus);
@@ -185,7 +186,9 @@ export default function JourneyChat({
 
           {status === "completed" && (
             <div className="text-center py-6 animate-riseIn">
-              <p className="text-gold text-sm">✦ Journey complete ✦</p>
+              <p className="text-gold text-sm">
+                {isLesson ? "✦ Lesson complete ✦" : "✦ Journey complete ✦"}
+              </p>
               <Link
                 href="/home"
                 className="inline-block mt-3 text-xs text-mistDim hover:text-mist underline"

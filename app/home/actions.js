@@ -3,8 +3,9 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import { getOrCreateTodaysPrompt, getFreshPrompt } from "@/lib/prompts/dailyPrompts";
+import { getOrCreateTodaysPrompt, getFreshPrompt, CATEGORIES } from "@/lib/prompts/dailyPrompts";
 import { generateTopicQuestion } from "@/lib/ai/topicQuestion";
+import { generateMicroLesson } from "@/lib/ai/microLesson";
 
 export async function beginJourney() {
   const supabase = createClient();
@@ -122,4 +123,70 @@ export async function signOut() {
   const supabase = createClient();
   await supabase.auth.signOut();
   redirect("/login");
+}
+
+// "Micro Lesson" — one short, standalone lesson with no question and no
+// back-and-forth. The journey is marked completed at creation, which is
+// what actually prevents any further AI calls on it: the reading page
+// hides the input box entirely once a journey is completed, so there's no
+// way to spend more credits on this one regardless of what anyone types
+// elsewhere. Adults only — gated in the UI by youthMode, not here, so if
+// you ever change that gate, this action doesn't need to change with it.
+export async function beginMicroLesson() {
+  const supabase = createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect("/login");
+
+  const { data: recent } = await supabase
+    .from("journeys")
+    .select("primary_category")
+    .eq("user_id", user.id)
+    .eq("prompt_source", "micro_lesson")
+    .order("created_at", { ascending: false })
+    .limit(7);
+
+  const recentCategories = new Set((recent || []).map((r) => r.primary_category));
+  let candidates = CATEGORIES.filter((c) => !recentCategories.has(c));
+  if (candidates.length === 0) {
+    candidates = CATEGORIES;
+  }
+  const category = candidates[Math.floor(Math.random() * candidates.length)];
+
+  let lesson;
+  try {
+    lesson = await generateMicroLesson({ category });
+  } catch (err) {
+    throw new Error(`Could not generate a lesson: ${err.message}`);
+  }
+
+  const { data: journey, error } = await supabase
+    .from("journeys")
+    .insert({
+      user_id: user.id,
+      original_prompt: lesson,
+      primary_category: category,
+      status: "completed",
+      completed_at: new Date().toISOString(),
+      prompt_source: "micro_lesson",
+    })
+    .select()
+    .single();
+
+  if (error) {
+    throw new Error(`Could not save lesson: ${error.message}`);
+  }
+
+  const { error: messageError } = await supabase.from("messages").insert({
+    journey_id: journey.id,
+    role: "assistant",
+    content: lesson,
+  });
+
+  if (messageError) {
+    throw new Error(`Could not save lesson message: ${messageError.message}`);
+  }
+
+  redirect(`/journey/${journey.id}`);
 }

@@ -1,7 +1,9 @@
 import { createClient } from "@/lib/supabase/server";
 import { getOrCreateTodaysPrompt } from "@/lib/prompts/dailyPrompts";
-import { beginJourney, shufflePrompt, beginTopicJourney, signOut } from "./actions";
+import { beginJourney, shufflePrompt, beginTopicJourney, beginMicroLesson, signOut } from "./actions";
+import { YOUTH_MODE_MAX_AGE } from "@/lib/ai/systemPrompt";
 import TopicSubmitButton from "./TopicSubmitButton";
+import MicroLessonButton from "./MicroLessonButton";
 import Link from "next/link";
 
 export default async function HomePage() {
@@ -12,9 +14,12 @@ export default async function HomePage() {
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("display_name")
+    .select("display_name, age")
     .eq("id", user.id)
     .maybeSingle();
+
+  const youthMode =
+    typeof profile?.age === "number" && profile.age <= YOUTH_MODE_MAX_AGE;
 
   const { data: activeJourney } = await supabase
     .from("journeys")
@@ -106,6 +111,20 @@ export default async function HomePage() {
               <TopicSubmitButton />
             </form>
           </section>
+
+          {!youthMode && (
+            <section className="paper-surface shadow-paper px-7 py-7 animate-riseIn">
+              <p className="text-xs uppercase tracking-wide text-ink/50 mb-3">
+                Micro Lesson
+              </p>
+              <p className="text-ink/60 text-sm mb-4">
+                One short, surprising lesson — no questions, no back-and-forth. Read it and go.
+              </p>
+              <form action={beginMicroLesson}>
+                <MicroLessonButton />
+              </form>
+            </section>
+          )}
         </div>
       </div>
     </main>

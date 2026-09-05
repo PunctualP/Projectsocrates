@@ -12,7 +12,7 @@ export default async function JourneyPage({ params }) {
 
   const { data: journey } = await supabase
     .from("journeys")
-    .select("id, status, original_prompt, user_id")
+    .select("id, status, original_prompt, user_id, prompt_source")
     .eq("id", params.id)
     .maybeSingle();
 
@@ -67,6 +67,7 @@ export default async function JourneyPage({ params }) {
       initialStatus={journey.status}
       youthMode={youthMode}
       selectableSuggestions={selectableSuggestions}
+      isLesson={journey.prompt_source === "micro_lesson"}
     />
   );
 }
