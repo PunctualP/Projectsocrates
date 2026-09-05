@@ -133,10 +133,13 @@ export default async function HomePage() {
           {!youthMode && (
             <section className="paper-surface shadow-paper px-7 py-7 animate-riseIn">
               <p className="text-xs uppercase tracking-wide text-ink/50 mb-3">
-                Micro Lesson
+                Spark
               </p>
-              <p className="text-ink/60 text-sm mb-4">
+              <p className="text-ink/60 text-sm mb-2">
                 One short, surprising lesson — no questions, no back-and-forth. Read it and go.
+              </p>
+              <p className="font-display italic text-ink/70 text-sm mb-4">
+                A little novelty stretches the day. One new idea, right now.
               </p>
               <form action={beginMicroLesson}>
                 <MicroLessonButton />
