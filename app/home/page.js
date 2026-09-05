@@ -6,6 +6,24 @@ import TopicSubmitButton from "./TopicSubmitButton";
 import MicroLessonButton from "./MicroLessonButton";
 import Link from "next/link";
 
+// A different example each render, so the topic box doesn't always show
+// the same hint. Mixes bare topics and direct questions since the box
+// supports both.
+const TOPIC_PLACEHOLDERS = [
+  "Moana, volcanoes, soccer…",
+  "dinosaurs, Minecraft, the ocean…",
+  "why do cats purr?",
+  "space, dragons, the pyramids…",
+  "how do airplanes fly?",
+  "sharks, Roman gladiators, chess…",
+  "your favorite show, a country, a sport…",
+  "what is Maui's hook made of?",
+];
+
+function randomPlaceholder() {
+  return TOPIC_PLACEHOLDERS[Math.floor(Math.random() * TOPIC_PLACEHOLDERS.length)];
+}
+
 export default async function HomePage() {
   const supabase = createClient();
   const {
@@ -105,7 +123,7 @@ export default async function HomePage() {
                 type="text"
                 name="topic"
                 required
-                placeholder="Moana, volcanoes, soccer…"
+                placeholder={randomPlaceholder()}
                 className="w-full rounded-md border border-ink/15 bg-white/70 px-3 py-2 text-ink outline-none focus:border-gold focus:ring-2 focus:ring-gold/30"
               />
               <TopicSubmitButton />
