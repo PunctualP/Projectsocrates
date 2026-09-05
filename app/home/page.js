@@ -10,14 +10,14 @@ import Link from "next/link";
 // the same hint. Mixes bare topics and direct questions since the box
 // supports both.
 const TOPIC_PLACEHOLDERS = [
-  "Moana, volcanoes, soccer…",
-  "dinosaurs, Minecraft, the ocean…",
-  "why do cats purr?",
-  "space, dragons, the pyramids…",
-  "how do airplanes fly?",
-  "sharks, Roman gladiators, chess…",
-  "your favorite show, a country, a sport…",
-  "what is Maui's hook made of?",
+  "Stars, coffee, what is a vortex?",
+  "Dinosaurs, chess, why do cats purr?",
+  "Volcanoes, Minecraft, how do airplanes fly?",
+  "Sharks, pyramids, what is Maui's hook made of?",
+  "Soccer, dragons, why is the sky blue?",
+  "Robots, gladiators, what makes a rainbow?",
+  "The ocean, magic, why do we dream?",
+  "Space, your favorite show, what is a black hole?",
 ];
 
 function randomPlaceholder() {
