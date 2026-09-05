@@ -16,6 +16,26 @@ export async function beginJourney() {
 
   const { prompt, category, source } = await getOrCreateTodaysPrompt(supabase, user.id);
 
+  // If a journey already exists for today's specific curiosity — whether
+  // still in progress or already finished — reopen that one instead of
+  // creating a duplicate. This is what lets someone review a completed
+  // conversation, or pick a continued one back up, just by clicking Begin
+  // Journey again. A genuinely new journey only gets created once today's
+  // prompt actually changes (a new day, or "Something else?"), since that
+  // changes the text this is matched against.
+  const { data: existing } = await supabase
+    .from("journeys")
+    .select("id")
+    .eq("user_id", user.id)
+    .eq("original_prompt", prompt)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (existing) {
+    redirect(`/journey/${existing.id}`);
+  }
+
   const { data: journey, error } = await supabase
     .from("journeys")
     .insert({
