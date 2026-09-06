@@ -54,13 +54,14 @@ export default function JourneyChat({
   youthMode,
   selectableSuggestions,
   isLesson,
+  initialSuggestions,
 }) {
   const [messages, setMessages] = useState(initialMessages);
   const [status, setStatus] = useState(initialStatus);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
-  const [suggestions, setSuggestions] = useState([]);
+  const [suggestions, setSuggestions] = useState(initialSuggestions || []);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [pendingShortReply, setPendingShortReply] = useState(null);
   const bottomRef = useRef(null);
@@ -89,6 +90,15 @@ export default function JourneyChat({
 
   useEffect(() => {
     return () => clearSuggestionTimer();
+  }, []);
+
+  // Same pop-in behavior as every other turn, but for the very first
+  // (opening) message — often the hardest one to know how to answer.
+  useEffect(() => {
+    if (youthMode && initialStatus !== "completed" && initialSuggestions?.length > 0) {
+      armSuggestionTimer(initialSuggestions);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function sendMessage(text, { bypassLengthCheck = false } = {}) {
@@ -157,6 +167,19 @@ export default function JourneyChat({
     if (e.target.value.trim()) {
       clearSuggestionTimer();
       setShowSuggestions(false);
+    }
+  }
+
+  async function finishJourney() {
+    if (sending) return;
+    clearSuggestionTimer();
+    setShowSuggestions(false);
+    try {
+      const res = await fetch(`/api/journey/${journeyId}/complete`, { method: "POST" });
+      if (!res.ok) throw new Error("request_failed");
+      setStatus("completed");
+    } catch (err) {
+      setErrorMsg("Couldn't close this out — check your connection and try again.");
     }
   }
 
@@ -290,6 +313,13 @@ export default function JourneyChat({
                 onClick={() => sendMessage("Just tell me the answer", { bypassLengthCheck: true })}
                 disabled={sending}
               />
+              {messages.length > 1 && (
+                <QuickButton
+                  label="I'm done — finish this"
+                  onClick={finishJourney}
+                  disabled={sending}
+                />
+              )}
             </div>
           </form>
         )}

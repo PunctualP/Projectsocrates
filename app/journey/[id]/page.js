@@ -54,6 +54,26 @@ export default async function JourneyPage({ params }) {
     }
   }
 
+  // Same defensive pattern as suggestions_selectable above: fetched
+  // separately since this column was also added after the initial schema.
+  let initialSuggestions = [];
+  if (youthMode) {
+    const { data: openingRow, error: openingError } = await supabase
+      .from("journeys")
+      .select("opening_suggestions")
+      .eq("id", journey.id)
+      .maybeSingle();
+
+    if (openingError) {
+      console.error(
+        "[socrates] opening_suggestions fetch error — has the migration been run? ",
+        openingError.message
+      );
+    } else if (openingRow?.opening_suggestions) {
+      initialSuggestions = openingRow.opening_suggestions;
+    }
+  }
+
   const { data: messages } = await supabase
     .from("messages")
     .select("id, role, content, created_at")
@@ -68,6 +88,7 @@ export default async function JourneyPage({ params }) {
       youthMode={youthMode}
       selectableSuggestions={selectableSuggestions}
       isLesson={journey.prompt_source === "micro_lesson"}
+      initialSuggestions={initialSuggestions}
     />
   );
 }

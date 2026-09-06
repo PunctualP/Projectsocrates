@@ -6,6 +6,8 @@ import { createClient } from "@/lib/supabase/server";
 import { getOrCreateTodaysPrompt, getFreshPrompt, CATEGORIES } from "@/lib/prompts/dailyPrompts";
 import { generateTopicQuestion } from "@/lib/ai/topicQuestion";
 import { generateMicroLesson } from "@/lib/ai/microLesson";
+import { generateOpeningSuggestions } from "@/lib/ai/openingSuggestions";
+import { YOUTH_MODE_MAX_AGE } from "@/lib/ai/systemPrompt";
 
 export async function beginJourney() {
   const supabase = createClient();
@@ -36,6 +38,29 @@ export async function beginJourney() {
     redirect(`/journey/${existing.id}`);
   }
 
+  // Only generated for youth-mode accounts — an adult doesn't need tap-to-
+  // guess chips, so skip the extra API call and cost entirely for them.
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("age")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  const youthMode =
+    typeof profile?.age === "number" && profile.age <= YOUTH_MODE_MAX_AGE;
+
+  let openingSuggestions = null;
+  if (youthMode) {
+    try {
+      openingSuggestions = await generateOpeningSuggestions({
+        question: prompt,
+        age: profile.age,
+      });
+    } catch (err) {
+      console.error("[socrates] opening suggestions failed, continuing without them:", err.message);
+    }
+  }
+
   const { data: journey, error } = await supabase
     .from("journeys")
     .insert({
@@ -44,6 +69,7 @@ export async function beginJourney() {
       primary_category: category,
       status: "active",
       prompt_source: source,
+      opening_suggestions: openingSuggestions,
     })
     .select()
     .single();
@@ -110,6 +136,21 @@ export async function beginTopicJourney(formData) {
     throw new Error(`Could not come up with a question for that topic: ${err.message}`);
   }
 
+  const youthMode =
+    typeof profile?.age === "number" && profile.age <= YOUTH_MODE_MAX_AGE;
+
+  let openingSuggestions = null;
+  if (youthMode) {
+    try {
+      openingSuggestions = await generateOpeningSuggestions({
+        question,
+        age: profile.age,
+      });
+    } catch (err) {
+      console.error("[socrates] opening suggestions failed, continuing without them:", err.message);
+    }
+  }
+
   const { data: journey, error } = await supabase
     .from("journeys")
     .insert({
@@ -118,6 +159,7 @@ export async function beginTopicJourney(formData) {
       status: "active",
       topic_seed: topic,
       prompt_source: "topic_seed",
+      opening_suggestions: openingSuggestions,
     })
     .select()
     .single();

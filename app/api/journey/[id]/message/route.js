@@ -74,7 +74,7 @@ export async function POST(request, { params }) {
       // an occasional joke, a fuller-writing nudge, AND the suggestion
       // marker on top of the actual answer — 350 was cutting the marker off
       // the end before it ever got written. 500 leaves real headroom.
-      maxTokens: youthMode ? 500 : 700,
+      maxTokens: youthMode ? 250 : 700,
     });
   } catch (err) {
     console.error("Anthropic API error:", err);
