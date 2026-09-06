@@ -97,8 +97,14 @@ export async function POST(request, { params }) {
     // question into the shared library so it can earn a permanent place
     // rather than every generated question being disposable. Only for
     // questions that came from domain generation, not ones seeded by a
-    // typed-in topic (those are personal to whoever typed them).
-    if (journey.prompt_source === "ai_generated" && journey.primary_category) {
+    // typed-in topic (those are personal to whoever typed them), and
+    // never for a safety-triggered closure — that's evidence a topic led
+    // somewhere it shouldn't, not evidence it was a good question.
+    if (
+      journey.prompt_source === "ai_generated" &&
+      journey.primary_category &&
+      !turn.safetyClosure
+    ) {
       const { error: libraryError } = await supabase.from("generated_prompts").insert({
         question: journey.original_prompt,
         category: journey.primary_category,
