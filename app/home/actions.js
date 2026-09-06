@@ -9,6 +9,33 @@ import { generateMicroLesson } from "@/lib/ai/microLesson";
 import { generateOpeningSuggestions } from "@/lib/ai/openingSuggestions";
 import { YOUTH_MODE_MAX_AGE } from "@/lib/ai/systemPrompt";
 
+// Inserts a journey, tolerating a database that hasn't run the
+// opening_suggestions migration yet. Without this, a missing column would
+// fail journey creation entirely — for every account, not just youth-mode
+// ones — rather than just quietly doing without that one feature.
+async function insertJourney(supabase, journeyData) {
+  let { data: journey, error } = await supabase
+    .from("journeys")
+    .insert(journeyData)
+    .select()
+    .single();
+
+  if (error && Object.prototype.hasOwnProperty.call(journeyData, "opening_suggestions")) {
+    console.error(
+      "[socrates] journey insert failed, retrying without opening_suggestions — has that migration been run?",
+      error.message
+    );
+    const { opening_suggestions, ...withoutSuggestions } = journeyData;
+    ({ data: journey, error } = await supabase
+      .from("journeys")
+      .insert(withoutSuggestions)
+      .select()
+      .single());
+  }
+
+  return { journey, error };
+}
+
 export async function beginJourney() {
   const supabase = createClient();
   const {
@@ -61,18 +88,14 @@ export async function beginJourney() {
     }
   }
 
-  const { data: journey, error } = await supabase
-    .from("journeys")
-    .insert({
-      user_id: user.id,
-      original_prompt: prompt,
-      primary_category: category,
-      status: "active",
-      prompt_source: source,
-      opening_suggestions: openingSuggestions,
-    })
-    .select()
-    .single();
+  const { journey, error } = await insertJourney(supabase, {
+    user_id: user.id,
+    original_prompt: prompt,
+    primary_category: category,
+    status: "active",
+    prompt_source: source,
+    opening_suggestions: openingSuggestions,
+  });
 
   if (error) {
     throw new Error(`Could not start journey: ${error.message}`);
@@ -151,18 +174,14 @@ export async function beginTopicJourney(formData) {
     }
   }
 
-  const { data: journey, error } = await supabase
-    .from("journeys")
-    .insert({
-      user_id: user.id,
-      original_prompt: question,
-      status: "active",
-      topic_seed: topic,
-      prompt_source: "topic_seed",
-      opening_suggestions: openingSuggestions,
-    })
-    .select()
-    .single();
+  const { journey, error } = await insertJourney(supabase, {
+    user_id: user.id,
+    original_prompt: question,
+    status: "active",
+    topic_seed: topic,
+    prompt_source: "topic_seed",
+    opening_suggestions: openingSuggestions,
+  });
 
   if (error) {
     throw new Error(`Could not start journey: ${error.message}`);
